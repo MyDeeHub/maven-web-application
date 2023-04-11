@@ -1,0 +1,42 @@
+node{
+    def mavenHome = tool name: 'maven3.9.1'
+    
+    stage('1CloneCode'){
+        git credentialsId: 'github', url: 'https://github.com/MyDeeHub/maven-web-application'
+    }
+    
+    stage('2Test&Build'){
+        sh "${mavenHome}/bin/mvn clean package"
+    }
+    
+    stage('3codeQuality'){
+        sh "${mavenHome}/bin/mvn sonar:sonar"
+    }
+    
+    stage('4UploadArtifacts'){
+        sh "${mavenHome}/bin/mvn deploy"
+    }
+    
+    stage('5deploy2UAT'){
+        deploy adapters: [tomcat9(credentialsId: 'credentials', path: '', url: 'http://3.239.26.207:9190/')], contextPath: null, war: 'target/*war'
+    }
+    
+    stage('6Manualapproval'){
+    sh "echo 'ready for review' "
+    timeout(time:5, unit: 'DAYS') {
+    input message: 'Application ready for dewployment, Please review and approve'
+        }
+    }
+    
+    stage('7deploy2prod'){
+        deploy adapters: [tomcat9(credentialsId: 'credentials', path: '', url: 'http://3.239.26.207:9190/')], contextPath: null, war: 'target/*war'
+    }
+
+  stage('8emailNotify'){
+    emailext body: '''Hello Team,
+
+    Build is done.
+
+    DeeHub''', recipientProviders: [developers(), contributor(), upstreamDevelopers()], subject: 'Build status', to: 'ruthmwandala@gmail.com'
+  }
+}    
